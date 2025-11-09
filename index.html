@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Crosshair Customizer</title>
+<style>
+  body {
+    background: #121212;
+    color: #eee;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0; padding: 20px;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  h1 {
+    margin-bottom: 15px;
+    color: #0f0;
+  }
+  #crosshair-selector {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+  .crosshair-thumb {
+    width: 80px;
+    height: 80px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    border-radius: 8px;
+    background-color: #222;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .crosshair-thumb.selected {
+    border-color: #0f0;
+  }
+  .crosshair-thumb img {
+    max-width: 70px;
+    max-height: 70px;
+  }
+  #controls {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 30px;
+  }
+  label {
+    display: flex;
+    flex-direction: column;
+    font-size: 14px;
+  }
+  input[type=range] {
+    width: 150px;
+  }
+  #preview-container {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    background-color: #222;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  #crosshair-preview {
+    position: absolute;
+    user-select: none;
+  }
+</style>
+</head>
+<body>
+
+<h1>Crosshair Customizer</h1>
+
+<div id="crosshair-selector">
+  <div class="crosshair-thumb selected" data-id="line">
+    <img src="7e7e6ad5-1ac6-444f-91d6-b0485ebb04e5.png" alt="Line Crosshair" />
+  </div>
+  <div class="crosshair-thumb" data-id="dot">
+    <img src="e0e81edc-f8c2-40d7-9f2e-99a6d9c961e5.png" alt="Dot Crosshair" />
+  </div>
+  <div class="crosshair-thumb" data-id="circle">
+    <img src="092b36da-6046-4d4a-a103-feef058556ff.png" alt="Circle Crosshair" />
+  </div>
+  <div class="crosshair-thumb" data-id="aimlab">
+    <img src="https://i.ibb.co/JjxZscm/crosshair-aimlab.png" alt="Aim Lab Crosshair" />
+  </div>
+</div>
+
+<div id="controls">
+  <label>
+    Size
+    <input type="range" id="sizeRange" min="20" max="150" value="80" />
+  </label>
+
+  <label>
+    Color
+    <input type="color" id="colorPicker" value="#00ff00" />
+  </label>
+
+  <label style="align-items: center;">
+    <input type="checkbox" id="bgToggle" checked style="margin-right: 6px;" />
+    Show Background
+  </label>
+</div>
+
+<div id="preview-container">
+  <canvas id="crosshair-preview" width="150" height="150"></canvas>
+</div>
+
+<script>
+  // Image data sources
+  const images = {
+    line: "7e7e6ad5-1ac6-444f-91d6-b0485ebb04e5.png",
+    dot: "e0e81edc-f8c2-40d7-9f2e-99a6d9c961e5.png",
+    circle: "092b36da-6046-4d4a-a103-feef058556ff.png",
+    aimlab: "https://i.ibb.co/JjxZscm/crosshair-aimlab.png",
+  };
+
+  const selector = document.getElementById('crosshair-selector');
+  const thumbs = selector.querySelectorAll('.crosshair-thumb');
+  const canvas = document.getElementById('crosshair-preview');
+  const ctx = canvas.getContext('2d');
+  const sizeRange = document.getElementById('sizeRange');
+  const colorPicker = document.getElementById('colorPicker');
+  const bgToggle = document.getElementById('bgToggle');
+
+  let selectedId = "line";
+  let imgObj = new Image();
+  let imgLoaded = false;
+
+  function loadImage(id) {
+    imgObj = new Image();
+    imgObj.crossOrigin = "anonymous";
+    imgObj.src = images[id];
+    imgLoaded = false;
+    imgObj.onload = () => {
+      imgLoaded = true;
+      drawCrosshair();
+    };
+  }
+
+  function drawCrosshair() {
+    if (!imgLoaded) return;
+
+    const size = parseInt(sizeRange.value, 10);
+    canvas.width = size;
+    canvas.height = size;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw background or transparent
+    if (bgToggle.checked) {
+      ctx.fillStyle = "#222"; 
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // Create offscreen canvas for tinting
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width = imgObj.width;
+    offCanvas.height = imgObj.height;
+    const offCtx = offCanvas.getContext('2d');
+    offCtx.clearRect(0, 0, offCanvas.width, offCanvas.height);
+
+    // Draw original image to offscreen
+    offCtx.drawImage(imgObj, 0, 0);
+
+    // Apply color tint
+    offCtx.globalCompositeOperation = 'source-in';
+    offCtx.fillStyle = colorPicker.value;
+    offCtx.fillRect(0, 0, offCanvas.width, offCanvas.height);
+
+    // Draw tinted image on main canvas, scaled to size
+    ctx.drawImage(offCanvas, 0, 0, offCanvas.width, offCanvas.height, 0, 0, size, size);
+  }
+
+  // Event listeners for UI
+
+  selector.addEventListener('click', e => {
+    const thumb = e.target.closest('.crosshair-thumb');
+    if (!thumb) return;
+
+    // Remove 'selected' class from all
+    thumbs.forEach(t => t.classList.remove('selected'));
+    // Add to clicked
+    thumb.classList.add('selected');
+
+    selectedId = thumb.getAttribute('data-id');
+    loadImage(selectedId);
+  });
+
+  sizeRange.addEventListener('input', drawCrosshair);
+  colorPicker.addEventListener('input', drawCrosshair);
+  bgToggle.addEventListener('change', drawCrosshair);
+
+  // Initialize
+  loadImage(selectedId);
+</script>
+
+</body>
+</html>
